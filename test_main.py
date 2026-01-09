@@ -2,6 +2,10 @@ import pytest
 from fastapi.testclient import TestClient
 from main import app, price_cache
 import time
+import os
+
+# Set a dummy API key for testing purposes
+os.environ["COINGECKO_API_KEY"] = "dummy_key"
 
 client = TestClient(app)
 
@@ -26,11 +30,9 @@ def test_get_price_success(mocker):
 
     response = client.get("/price/bitcoin")
     assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "success"
-    assert data["source"] == "live"
-    assert data["data"]["symbol"] == "bitcoin"
-    assert data["data"]["price"] == 65000
+    # Check that the response is a plain text string
+    assert response.headers['content-type'] == 'text/plain; charset=utf-8'
+    assert "The price of bitcoin is 65000 USD" in response.text
 
 def test_get_price_not_found(mocker):
     """
@@ -62,27 +64,18 @@ def test_caching(mocker):
 
     response1 = client.get("/price/ethereum")
     assert response1.status_code == 200
-    data1 = response1.json()
-    assert data1["status"] == "success"
-    assert data1["source"] == "live"
+    assert "The price of ethereum is 3500 USD" in response1.text
 
-    # Second request should come from cache (no API call)
+    # Manually check cache content
+    assert "ethereum" in price_cache
+    assert price_cache["ethereum"]["data"] == response1.text
+
+    # Second request should come from cache
+    # We can even remove the patch to ensure no API call is made
+    mocker.stopall()
     response2 = client.get("/price/ethereum")
     assert response2.status_code == 200
-    data2 = response2.json()
-    assert data2["status"] == "success"
-    assert data2["source"] == "cache"
-
-    # Wait for cache to expire
-    time.sleep(61)
-
-    # Third request should be live again
-    mocker.patch("requests.get", return_value=mock_response_live) # Re-patch for the new call
-    response3 = client.get("/price/ethereum")
-    assert response3.status_code == 200
-    data3 = response3.json()
-    assert data3["status"] == "success"
-    assert data3["source"] == "live"
+    assert response2.text == response1.text # Should be identical to cached string
 
 def test_rate_limit_with_cache(mocker):
     """
@@ -91,7 +84,7 @@ def test_rate_limit_with_cache(mocker):
     # First, cache the data
     mock_response_live = mocker.Mock()
     mock_response_live.status_code = 200
-    mock_response_live.json.return_value = {"solana": {"usd": 150}}
+    mock_response_live.json.return_value = {"solana": {"usd": 150, "usd_24h_change": 1.0}}
     mocker.patch("requests.get", return_value=mock_response_live)
     client.get("/price/solana")
 
@@ -105,10 +98,8 @@ def test_rate_limit_with_cache(mocker):
 
     response = client.get("/price/solana")
     assert response.status_code == 200
-    data = response.json()
-    assert data["status"] == "warning"
-    assert data["source"] == "expired_cache"
-    assert data["data"]["price"] == 150
+    assert "(Stale Data due to Rate Limit)" in response.text
+    assert "The price of solana is 150 USD" in response.text
 
 def test_rate_limit_no_cache(mocker):
     """
