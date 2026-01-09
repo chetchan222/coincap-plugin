@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import requests
 import time
+import os
 
 app = FastAPI(
     title="Crypto Price Plugin",
@@ -53,6 +54,12 @@ def get_crypto_price(symbol: str):
 
     # 2. 請求 CoinGecko API
     url = f"https://api.coingecko.com/api/v3/simple/price?ids={symbol}&vs_currencies=usd&include_24hr_change=true"
+    
+    # Check for CoinGecko API Key from environment variable
+    coingecko_api_key = os.environ.get("COINGECKO_API_KEY")
+    if coingecko_api_key:
+        url += f"&x_cg_demo_api_key={coingecko_api_key}"
+    
     
     try:
         response = requests.get(url, timeout=10)
