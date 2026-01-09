@@ -25,6 +25,13 @@ app.add_middleware(
 price_cache = {}
 CACHE_DURATION = 60  # 緩存 60 秒
 
+@app.get("/health", summary="Health Check", operation_id="healthCheck")
+def health_check():
+    """
+    Simple health check endpoint.
+    """
+    return {"status": "ok"}
+
 @app.get("/price/{symbol}", summary="Get Crypto Price", operation_id="getPrice")
 def get_crypto_price(symbol: str):
     """
