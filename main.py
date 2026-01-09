@@ -9,7 +9,7 @@ app = FastAPI(
     description="Get real-time crypto prices with caching to prevent rate limits.",
     version="1.0.0",
     servers=[
-        {"url": "https://YOUR-APP-NAME.onrender.com", "description": "Render Production Server"} 
+        {"url": "https://coincap-plugin.onrender.com", "description": "Render Production Server"} 
     ]
 )
 
